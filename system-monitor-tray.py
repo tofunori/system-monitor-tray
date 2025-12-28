@@ -139,7 +139,47 @@ class MonitorPopup(QWidget):
         temp_layout.addStretch()
         layout.addLayout(temp_layout)
 
-        self.setFixedWidth(450)
+        # Barre de boutons en bas
+        button_layout = QHBoxLayout()
+        button_layout.addStretch()
+
+        about_btn = QPushButton("À propos")
+        about_btn.clicked.connect(self.show_about)
+        button_layout.addWidget(about_btn)
+
+        quit_btn = QPushButton("Quitter")
+        quit_btn.setStyleSheet("background-color: #aa4444;")
+        quit_btn.clicked.connect(self.quit_app)
+        button_layout.addWidget(quit_btn)
+
+        layout.addLayout(button_layout)
+
+        # Permettre le redimensionnement
+        self.setMinimumWidth(400)
+        self.setMinimumHeight(450)
+        self.resize(450, 500)
+
+    def set_quit_callback(self, callback):
+        """Définit le callback pour quitter l'app"""
+        self.quit_callback = callback
+
+    def show_about(self):
+        """Affiche la boîte de dialogue À propos"""
+        QMessageBox.about(
+            self,
+            "À propos",
+            "<h3>System Monitor Tray</h3>"
+            "<p>Version 1.0</p>"
+            "<p>Moniteur système léger pour Linux</p>"
+            "<p>Affiche CPU, RAM, processus et températures</p>"
+            "<hr>"
+            "<p><a href='https://github.com/tofunori/system-monitor-tray'>GitHub</a></p>"
+        )
+
+    def quit_app(self):
+        """Quitte l'application"""
+        if hasattr(self, 'quit_callback') and self.quit_callback:
+            self.quit_callback()
 
     def update_data(self, processes, cpu_percent, ram_used, ram_total, temps):
         """Met à jour les données affichées"""
@@ -206,13 +246,20 @@ class SystemMonitorTray:
 
         # Menu clic droit
         self.menu = QMenu()
-        quit_action = QAction("Quitter")
+
+        about_action = self.menu.addAction("À propos")
+        about_action.triggered.connect(self.show_about)
+
+        self.menu.addSeparator()
+
+        quit_action = self.menu.addAction("Quitter")
         quit_action.triggered.connect(self.quit)
-        self.menu.addAction(quit_action)
+
         self.tray.setContextMenu(self.menu)
 
         # Popup
         self.popup = MonitorPopup()
+        self.popup.set_quit_callback(self.quit)
 
         # Timer pour mise à jour
         self.timer = QTimer()
@@ -241,7 +288,7 @@ class SystemMonitorTray:
         radius = 26
         thickness = 8
 
-        # Cercle de fond (gris plus visible)
+        # Cercle de fond (gris)
         pen = QPen(QColor("#707070"))
         pen.setWidth(thickness)
         pen.setCapStyle(Qt.PenCapStyle.RoundCap)
@@ -249,16 +296,15 @@ class SystemMonitorTray:
         painter.setBrush(Qt.BrushStyle.NoBrush)
         painter.drawEllipse(center - radius, center - radius, radius * 2, radius * 2)
 
-        # Arc actif (blanc) - commence en haut (-90°), sens horaire
+        # Arc actif (blanc) - commence en haut, sens horaire
         if cpu_percent > 0:
             pen = QPen(QColor("#FFFFFF"))
             pen.setWidth(thickness)
             pen.setCapStyle(Qt.PenCapStyle.RoundCap)
             painter.setPen(pen)
 
-            # Qt utilise 1/16 de degré, commence à 90° (haut), sens anti-horaire
             start_angle = 90 * 16  # Haut
-            span_angle = -int(cpu_percent * 3.6 * 16)  # Négatif = sens horaire
+            span_angle = -int(cpu_percent * 3.6 * 16)  # Sens horaire
 
             painter.drawArc(
                 center - radius, center - radius,
@@ -370,6 +416,8 @@ class SystemMonitorTray:
 
     def on_tray_activated(self, reason):
         """Gère le clic sur l'icône"""
+        from PyQt6.QtGui import QCursor
+
         if reason == QSystemTrayIcon.ActivationReason.Trigger:  # Clic gauche
             if self.popup.isVisible():
                 self.popup.hide()
@@ -391,6 +439,23 @@ class SystemMonitorTray:
                 self.popup.show()
                 self.popup.raise_()
                 self.popup.activateWindow()
+
+        elif reason == QSystemTrayIcon.ActivationReason.Context:  # Clic droit
+            # Afficher le menu manuellement (fix pour KDE/Plasma)
+            self.menu.exec(QCursor.pos())
+
+    def show_about(self):
+        """Affiche la boîte de dialogue À propos"""
+        QMessageBox.about(
+            None,
+            "À propos",
+            "<h3>System Monitor Tray</h3>"
+            "<p>Version 1.0</p>"
+            "<p>Moniteur système léger pour Linux</p>"
+            "<p>Affiche CPU, RAM, processus et températures</p>"
+            "<hr>"
+            "<p><a href='https://github.com/tofunori/system-monitor-tray'>GitHub</a></p>"
+        )
 
     def quit(self):
         """Quitte l'application"""

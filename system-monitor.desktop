@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=System Monitor Tray
+Comment=System tray monitor for CPU, RAM, processes and temperatures
+Exec=/usr/local/bin/system-monitor-tray
+Icon=utilities-system-monitor
+Terminal=false
+Type=Application
+Categories=System;Monitor;
